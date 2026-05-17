@@ -25,7 +25,6 @@ jobs:
       
     - name: Build iOS App
       run: |
-        cd Phim
         xcodebuild clean build \
           -project Phim.xcodeproj \
           -scheme Phim \
@@ -39,7 +38,6 @@ jobs:
           
     - name: Create IPA (Unsigned)
       run: |
-        cd Phim
         mkdir -p Payload
         cp -r build/Build/Products/Release-iphoneos/Phim.app Payload/
         zip -r Phim-unsigned.ipa Payload
@@ -49,7 +47,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Phim-unsigned-ipa
-        path: Phim/Phim-unsigned.ipa
+        path: Phim-unsigned.ipa
         retention-days: 30
         
     - name: Create Release
@@ -76,7 +74,7 @@ jobs:
           
           Build #${{ github.run_number }}
         files: |
-          Phim/Phim-unsigned.ipa
+          Phim-unsigned.ipa
         draft: false
         prerelease: false
       env:
