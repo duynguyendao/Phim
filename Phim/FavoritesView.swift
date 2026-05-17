@@ -16,6 +16,7 @@ struct Movie: Identifiable, Codable {
     var addedDate: Date
 }
 
+@available(iOS 15.0, *)
 struct FavoritesView: View {
     @Environment(\.dismiss) var dismiss
     @Binding var favorites: [Movie]
@@ -69,12 +70,12 @@ struct FavoritesView: View {
                     }
                 }
                 
-                if !favorites.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button(role: .destructive) {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if !favorites.isEmpty {
+                        Button(action: {
                             showDeleteAlert = true
                             movieToDelete = nil
-                        } label: {
+                        }) {
                             Image(systemName: "trash")
                                 .foregroundColor(.red)
                         }
