@@ -91,6 +91,9 @@ struct WebView: UIViewRepresentable {
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
         
+        // Thêm ad blocker
+        setupAdBlocker(configuration: configuration)
+        
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
@@ -166,6 +169,82 @@ struct WebView: UIViewRepresentable {
         deinit {
             NotificationCenter.default.removeObserver(self)
         }
+    }
+    
+    // MARK: - Ad Blocker
+    private func setupAdBlocker(configuration: WKWebViewConfiguration) {
+        let blockRules = """
+        [
+            {
+                "trigger": {
+                    "url-filter": ".*",
+                    "resource-type": ["script", "image"],
+                    "if-domain": ["*doubleclick.net", "*googlesyndication.com", "*googleadservices.com", "*google-analytics.com", "*googletagmanager.com", "*facebook.net", "*facebook.com", "*ads*.com", "*adservice*", "*advertising*", "*analytics*", "*tracker*", "*banner*", "*popup*"]
+                },
+                "action": {
+                    "type": "block"
+                }
+            },
+            {
+                "trigger": {
+                    "url-filter": ".*",
+                    "resource-type": ["popup"]
+                },
+                "action": {
+                    "type": "block"
+                }
+            },
+            {
+                "trigger": {
+                    "url-filter": ".*",
+                    "if-domain": ["*ad-*.com", "*ads-*.com", "*adserver*.com", "*adsystem*.com"]
+                },
+                "action": {
+                    "type": "block"
+                }
+            }
+        ]
+        """
+        
+        WKContentRuleListStore.default().compileContentRuleList(
+            forIdentifier: "ContentBlockingRules",
+            encodedContentRuleList: blockRules
+        ) { contentRuleList, error in
+            if let contentRuleList = contentRuleList {
+                configuration.userContentController.add(contentRuleList)
+            }
+            if let error = error {
+                print("Error compiling content blocking rules: \(error.localizedDescription)")
+            }
+        }
+        
+        // Thêm CSS để ẩn các element quảng cáo phổ biến
+        let cssHideAds = """
+        var style = document.createElement('style');
+        style.innerHTML = `
+            [class*="ad-"], [class*="ads-"], [id*="ad-"], [id*="ads-"],
+            [class*="banner"], [id*="banner"],
+            [class*="popup"], [id*="popup"],
+            [class*="sponsor"], [id*="sponsor"],
+            iframe[src*="ads"], iframe[src*="doubleclick"],
+            .advertisement, .ad-container, .ads-container,
+            .google-ad, .adsbygoogle {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                height: 0 !important;
+                width: 0 !important;
+            }
+        `;
+        document.head.appendChild(style);
+        """
+        
+        let hideAdsScript = WKUserScript(
+            source: cssHideAds,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+        configuration.userContentController.addUserScript(hideAdsScript)
     }
 }
 
