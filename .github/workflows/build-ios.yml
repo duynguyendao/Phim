@@ -1,0 +1,83 @@
+name: Build iOS App (Unsigned)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: latest-stable
+        
+    - name: Show Xcode version
+      run: xcodebuild -version
+      
+    - name: Build iOS App
+      run: |
+        cd Phim
+        xcodebuild clean build \
+          -project Phim.xcodeproj \
+          -scheme Phim \
+          -configuration Release \
+          -sdk iphoneos \
+          -destination 'generic/platform=iOS' \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO \
+          -derivedDataPath ./build
+          
+    - name: Create IPA (Unsigned)
+      run: |
+        cd Phim
+        mkdir -p Payload
+        cp -r build/Build/Products/Release-iphoneos/Phim.app Payload/
+        zip -r Phim-unsigned.ipa Payload
+        rm -rf Payload
+        
+    - name: Upload IPA
+      uses: actions/upload-artifact@v4
+      with:
+        name: Phim-unsigned-ipa
+        path: Phim/Phim-unsigned.ipa
+        retention-days: 30
+        
+    - name: Create Release
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v1.0.${{ github.run_number }}
+        name: Phim v1.0.${{ github.run_number }}
+        body: |
+          ## Phim - iOS App (Unsigned)
+          
+          Ứng dụng xem phim từ https://tvhayd.pro/
+          
+          ### Cài đặt:
+          1. Tải file `Phim-unsigned.ipa`
+          2. Sử dụng AltStore, Sideloadly, hoặc công cụ tương tự để cài đặt
+          3. Hoặc sign lại với certificate của bạn
+          
+          ### Tính năng:
+          - ✅ Xem phim trực tiếp từ tvhayd.pro
+          - ✅ Giao diện native iOS
+          - ✅ Phát video inline
+          - ✅ Điều hướng đầy đủ
+          
+          Build #${{ github.run_number }}
+        files: |
+          Phim/Phim-unsigned.ipa
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
