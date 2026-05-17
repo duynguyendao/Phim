@@ -1,4 +1,4 @@
-//
+k//
 //  ContentView.swift
 //  Phim
 //
@@ -14,6 +14,12 @@ struct ContentView: View {
     @State private var canGoForward = false
     @State private var showSettings = false
     @State private var showMenu = false
+    @State private var showFavorites = false
+    @State private var currentURL: String = ""
+    @State private var currentTitle: String = ""
+    @State private var detectedVideoURL: String?
+    @State private var favorites: [Movie] = []
+    @State private var showSaveAlert = false
     @AppStorage("adBlockEnabled") private var adBlockEnabled = true
     
     var body: some View {
@@ -25,7 +31,10 @@ struct ContentView: View {
                     isLoading: $isLoading,
                     canGoBack: $canGoBack,
                     canGoForward: $canGoForward,
-                    adBlockEnabled: $adBlockEnabled
+                    adBlockEnabled: $adBlockEnabled,
+                    currentURL: $currentURL,
+                    currentTitle: $currentTitle,
+                    detectedVideoURL: $detectedVideoURL
                 )
                 
                 // Loading indicator
@@ -79,6 +88,16 @@ struct ContentView: View {
                         HStack {
                             Spacer()
                             VStack(spacing: 15) {
+                                MenuButton(icon: "star.fill", title: "Lưu phim", color: .yellow) {
+                                    saveCurrentMovie()
+                                    showMenu = false
+                                }
+                                
+                                MenuButton(icon: "heart.fill", title: "Yêu thích", color: .pink) {
+                                    showFavorites = true
+                                    showMenu = false
+                                }
+                                
                                 MenuButton(icon: "house.fill", title: "Trang chủ", color: .blue) {
                                     NotificationCenter.default.post(name: NSNotification.Name("WebViewGoHome"), object: nil)
                                     showMenu = false
@@ -86,13 +105,6 @@ struct ContentView: View {
                                 
                                 MenuButton(icon: "arrow.clockwise", title: "Tải lại", color: .green) {
                                     NotificationCenter.default.post(name: NSNotification.Name("WebViewReload"), object: nil)
-                                    showMenu = false
-                                }
-                                
-                                MenuButton(icon: "safari", title: "Safari", color: .orange) {
-                                    if let url = URL(string: "https://tvhayd.pro/") {
-                                        UIApplication.shared.open(url)
-                                    }
                                     showMenu = false
                                 }
                                 
@@ -134,6 +146,63 @@ struct ContentView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
+            .sheet(isPresented: $showFavorites) {
+                FavoritesView(favorites: $favorites)
+            }
+            .alert("Đã lưu!", isPresented: $showSaveAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Phim đã được thêm vào danh sách yêu thích")
+            }
+            .onAppear {
+                loadFavorites()
+                setupNotifications()
+            }
+        }
+    }
+    
+    private func saveCurrentMovie() {
+        let movie = Movie(
+            title: currentTitle.isEmpty ? "Phim" : currentTitle,
+            url: currentURL,
+            videoURL: detectedVideoURL,
+            addedDate: Date()
+        )
+        
+        // Check if already exists
+        if !favorites.contains(where: { $0.url == movie.url }) {
+            favorites.append(movie)
+            saveFavorites()
+            showSaveAlert = true
+        }
+    }
+    
+    private func loadFavorites() {
+        if let data = UserDefaults.standard.data(forKey: "favorites"),
+           let decoded = try? JSONDecoder().decode([Movie].self, from: data) {
+            favorites = decoded
+        }
+    }
+    
+    private func saveFavorites() {
+        if let encoded = try? JSONEncoder().encode(favorites) {
+            UserDefaults.standard.set(encoded, forKey: "favorites")
+        }
+    }
+    
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("LoadMovieURL"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let urlString = notification.object as? String,
+               let url = URL(string: urlString) {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("WebViewLoadURL"),
+                    object: url
+                )
+            }
         }
     }
 }
@@ -173,6 +242,9 @@ struct WebView: UIViewRepresentable {
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
     @Binding var adBlockEnabled: Bool
+    @Binding var currentURL: String
+    @Binding var currentTitle: String
+    @Binding var detectedVideoURL: String?
     
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -223,8 +295,45 @@ struct WebView: UIViewRepresentable {
             object: nil
         )
         
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.loadURL),
+            name: NSNotification.Name("WebViewLoadURL"),
+            object: nil
+        )
+        
         context.coordinator.webView = webView
         context.coordinator.homeURL = url
+        
+        // Add video detection script
+        let videoDetectionScript = WKUserScript(
+            source: """
+            (function() {
+                function detectVideo() {
+                    var videos = document.querySelectorAll('video');
+                    if (videos.length > 0) {
+                        var videoSrc = videos[0].src || videos[0].currentSrc;
+                        if (videoSrc) {
+                            window.webkit.messageHandlers.videoDetected.postMessage(videoSrc);
+                        }
+                    }
+                }
+                
+                // Check immediately
+                detectVideo();
+                
+                // Check after page load
+                window.addEventListener('load', detectVideo);
+                
+                // Check periodically
+                setInterval(detectVideo, 2000);
+            })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        )
+        configuration.userContentController.addUserScript(videoDetectionScript)
+        configuration.userContentController.add(context.coordinator, name: "videoDetected")
         
         let request = URLRequest(url: url)
         webView.load(request)
@@ -253,6 +362,17 @@ struct WebView: UIViewRepresentable {
             parent.isLoading = false
             parent.canGoBack = webView.canGoBack
             parent.canGoForward = webView.canGoForward
+            
+            // Update current URL and title
+            if let url = webView.url?.absoluteString {
+                parent.currentURL = url
+            }
+            
+            webView.evaluateJavaScript("document.title") { result, error in
+                if let title = result as? String, !title.isEmpty {
+                    self.parent.currentTitle = title
+                }
+            }
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -278,10 +398,30 @@ struct WebView: UIViewRepresentable {
             }
         }
         
+        @objc func loadURL(_ notification: Notification) {
+            if let url = notification.object as? URL {
+                let request = URLRequest(url: url)
+                webView?.load(request)
+            }
+        }
+        
         deinit {
             NotificationCenter.default.removeObserver(self)
         }
     }
+}
+
+extension WebView.Coordinator: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "videoDetected", let videoURL = message.body as? String {
+            DispatchQueue.main.async {
+                self.parent.detectedVideoURL = videoURL
+            }
+        }
+    }
+}
+
+extension WebView {
     
     // MARK: - Ad Blocker
     private func setupAdBlocker(configuration: WKWebViewConfiguration) {

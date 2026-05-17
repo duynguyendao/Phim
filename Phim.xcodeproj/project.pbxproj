@@ -13,6 +13,7 @@
 		A1000007000000000000001 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001 /* Preview Assets.xcassets */; };
 		A1000019000000000000001 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000020000000000000001 /* SplashView.swift */; };
 		A1000021000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000022000000000000001 /* SettingsView.swift */; };
+		A1000023000000000000001 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000024000000000000001 /* FavoritesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +24,7 @@
 		A1000008000000000000001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A1000020000000000000001 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		A1000022000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1000024000000000000001 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +53,7 @@
 				A1000020000000000000001 /* SplashView.swift */,
 				A1000004000000000000001 /* ContentView.swift */,
 				A1000022000000000000001 /* SettingsView.swift */,
+				A1000024000000000000001 /* FavoritesView.swift */,
 				A1000006000000000000001 /* Assets.xcassets */,
 				A100000E000000000000001 /* Preview Content */,
 			);
@@ -147,6 +150,7 @@
 				A1000001000000000000001 /* PhimApp.swift in Sources */,
 				A1000019000000000000001 /* SplashView.swift in Sources */,
 				A1000021000000000000001 /* SettingsView.swift in Sources */,
+				A1000023000000000000001 /* FavoritesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
